@@ -1,0 +1,67 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: ../
+      dockerfile: ./deploy/Dockerfile
+      target: prod
+    image: mdp-workflow-service:${MDPSERVICE_VERSION:-latest}
+    restart: always
+    env_file:
+    - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      MDPSERVICE_HOST: 0.0.0.0
+      MDPSERVICE_DB_HOST: mdpService-db
+      MDPSERVICE_DB_PORT: 5432
+      MDPSERVICE_DB_USER: mdpService
+      MDPSERVICE_DB_PASS: mdpService
+      MDPSERVICE_DB_BASE: mdpService
+      MDPSERVICE_REDIS_HOST: mdpService-redis
+    ports:
+      # Exposes application port.
+    - "8000:8000"
+  db:
+    image: postgres:13.8-bullseye
+    hostname: mdpService-db
+    environment:
+      POSTGRES_PASSWORD: "mdpService"
+      POSTGRES_USER: "mdpService"
+      POSTGRES_DB: "mdpService"
+    ports:
+      # Exposes application port.
+    - "5432:5432"
+    volumes:
+    - mdpService-db-data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: pg_isready -U mdpService
+      interval: 2s
+      timeout: 3s
+      retries: 40
+
+  redis:
+    image: bitnami/redis:6.2.5
+    hostname: "mdpService-redis"
+    ports:
+      # Exposes application port.
+    - "6379:6379"
+    restart: always
+    environment:
+      ALLOW_EMPTY_PASSWORD: "yes"
+    healthcheck:
+      test: redis-cli ping
+      interval: 1s
+      timeout: 3s
+      retries: 50
+
+
+
+volumes:
+  mdpService-db-data:
+    name: mdpService-db-data
